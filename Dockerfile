@@ -1,4 +1,4 @@
-FROM jgraph/drawio:latest
+FROM jgraph/drawio:32.6.10
 
 USER root
 
