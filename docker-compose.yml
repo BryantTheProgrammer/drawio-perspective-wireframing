@@ -1,0 +1,12 @@
+services:
+  drawio:
+    build: .
+    image: drawio-page-explorer
+    container_name: drawio
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - ./page-explorer.js:/usr/local/tomcat/webapps/draw/plugins/page-explorer.js:ro
+      - ./libraries:/usr/local/tomcat/webapps/draw/custom-libs:ro
