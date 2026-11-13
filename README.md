@@ -99,6 +99,16 @@ http://localhost:8080/?https=0
   http://localhost:8080/custom-libs/ignition-perspective.xml
   ```
 
+### Use the plugin manually in a browser
+
+You can try Page Explorer without setting up Docker by running `page-explorer.js` in a browser-based draw.io editor:
+
+1. Open the diagram in the browser editor and open the browser's developer tools (**F12**).
+2. Open the **Console**, copy the complete contents of `page-explorer.js` from a trusted copy of this repository, paste it into the console, and run it.
+3. The Page Explorer panel should appear. If the browser blocks pasting into the console, only follow its paste instructions if you have reviewed and trust the code.
+
+This loads the plugin only in the current tab. Repeat after reloading or opening another tab. This method does not load the Ignition Perspective library; load that library separately if you need it. The plugin is unofficial and requires the browser version of draw.io; it does not work in draw.io Desktop, Confluence, or Jira.
+
 ---
 
 ## Using Page Explorer
@@ -110,7 +120,7 @@ http://localhost:8080/?https=0
 | Show / hide | **Ctrl+Shift+E**, the **☰ Pages** tab on the left edge, or **Extras → Page Explorer** |
 | Dock left / right / floating | Dock button in the panel header, or **Extras → Page Explorer: Change Dock** |
 | Resize | Drag the panel's inner edge |
-| Filter | Type in the search box; **Enter** opens the first match |
+| Filter | Type in the search box to match page names, sections, status, or phase; **Enter** opens the first match |
 | Expand / collapse all | **⊞ / ⊟** in the header |
 | Reset panel layout | **Extras → Page Explorer: Reset Layout** |
 
@@ -123,7 +133,10 @@ http://localhost:8080/?https=0
 | Rename | Double-click the page, or hover and click **✎** |
 | Duplicate | Hover and click **⧉** |
 | Delete | Hover and click **🗑** |
+| Set status / phase | Hover and click **⚑**; choose Draft, Review, or Ready and enter a phase |
 | Reorder / move between sections | Drag the page; drop on a section header to move to the end of it |
+
+Status and phase are stored as page metadata in the diagram file, so they travel with the drawing. Use **Clear** in the page details editor to remove both values, then **Save**. These metadata edits are saved with the diagram but are not part of draw.io's **Ctrl+Z** history.
 
 ### Sections
 

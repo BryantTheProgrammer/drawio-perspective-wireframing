@@ -499,21 +499,37 @@ Draw.loadPlugin(function (ui) {
         '.pe-group:hover,.pe-page:hover{background:rgba(0,0,0,.07)}',
         '.pe-caret{display:inline-block;width:14px;font-size:10px}',
         '.pe-count{margin-left:auto;font-weight:normal;opacity:.6;font-size:11px}',
-        '.pe-page{display:block;width:100%;border:0;background:transparent;color:inherit;text-align:left;',
-        '  cursor:pointer;padding:4px 6px 4px 26px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.pe-page{display:flex;align-items:center;gap:5px;width:100%;border:0;background:transparent;color:inherit;',
+        '  text-align:left;cursor:pointer;padding:4px 96px 4px 26px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.pe-page-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}',
+        '.pe-page-meta{flex:none;padding:1px 5px;border-radius:8px;background:rgba(0,0,0,.08);font-size:10px;font-weight:normal}',
+        '.pe-dark .pe-page-meta{background:rgba(255,255,255,.12)}',
         '.pe-page.pe-active{background:#dbeafe;color:#1d4ed8;font-weight:bold}',
         '.pe-dark .pe-page.pe-active{background:#1e3a5f;color:#93c5fd}',
         '.pe-empty{padding:8px;opacity:.6;font-style:italic}',
         '.pe-page.pe-dragging{opacity:.4}',
         '.pe-page{position:relative}',
-        '.pe-page:hover{padding-right:72px}',
+        '.pe-page:hover{padding-right:96px}',
         '.pe-actions{position:absolute;right:2px;top:50%;transform:translateY(-50%);display:none;gap:1px}',
         '.pe-page:hover .pe-actions{display:flex}',
+        '.pe-page:hover .pe-page-meta{display:none}',
         '.pe-act{padding:0 4px;border-radius:3px;font-size:12px;opacity:.7;font-weight:normal}',
         '.pe-act:hover{opacity:1;background:rgba(0,0,0,.12)}',
         '.pe-act.pe-danger:hover{background:rgba(220,38,38,.18)}',
         '.pe-rename{display:block;box-sizing:border-box;width:calc(100% - 20px);margin:1px 0 1px 20px;padding:3px 6px;',
         '  border:1px solid #1d4ed8;border-radius:4px;font:13px Helvetica,Arial,sans-serif;background:inherit;color:inherit}',
+        '.pe-meta-overlay{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;',
+        '  background:rgba(0,0,0,.35);font:13px/1.4 Helvetica,Arial,sans-serif}',
+        '.pe-meta-dialog{box-sizing:border-box;width:min(360px,calc(100vw - 32px));padding:16px;border:1px solid #bbb;',
+        '  border-radius:8px;background:#fff;color:#222;box-shadow:0 8px 30px rgba(0,0,0,.25)}',
+        '.pe-meta-dialog h2{margin:0 0 14px;font-size:16px}',
+        '.pe-meta-field{display:block;margin:10px 0}',
+        '.pe-meta-field span{display:block;margin-bottom:4px;font-weight:bold}',
+        '.pe-meta-field select,.pe-meta-field input{box-sizing:border-box;width:100%;padding:6px;border:1px solid #aaa;',
+        '  border-radius:4px;background:#fff;color:#222;font:inherit}',
+        '.pe-meta-buttons{display:flex;gap:6px;justify-content:flex-end;margin-top:16px}',
+        '.pe-meta-buttons button{padding:5px 10px;border:1px solid #aaa;border-radius:4px;background:#f7f7f7;color:#222;cursor:pointer}',
+        '.pe-meta-buttons button[type=submit]{border-color:#1d4ed8;background:#1d4ed8;color:#fff}',
         '.pe-toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);z-index:2000;display:none;',
         '  padding:8px 14px;border-radius:6px;background:#333;color:#fff;font:12px Helvetica,Arial,sans-serif;',
         '  box-shadow:0 2px 8px rgba(0,0,0,.3)}',
@@ -602,6 +618,78 @@ Draw.loadPlugin(function (ui) {
     reopenTab.addEventListener('click', function () { setVisible(true); });
     document.body.appendChild(reopenTab);
 
+    var metadataPage = null;
+    var metadataOverlay = document.createElement('div');
+    metadataOverlay.className = 'pe-meta-overlay';
+    metadataOverlay.innerHTML = '<form class="pe-meta-dialog" role="dialog" aria-modal="true" aria-labelledby="pe-meta-title">' +
+        '<h2 id="pe-meta-title">Page details</h2>' +
+        '<label class="pe-meta-field"><span>Status</span><select name="status">' +
+        '<option value="">No status</option><option value="Draft">Draft</option>' +
+        '<option value="Review">Review</option><option value="Ready">Ready</option></select></label>' +
+        '<label class="pe-meta-field"><span>Phase</span><input name="phase" type="text" maxlength="80" placeholder="e.g. Phase 1"></label>' +
+        '<div class="pe-meta-buttons"><button type="button" data-action="clear">Clear</button>' +
+        '<button type="button" data-action="cancel">Cancel</button><button type="submit">Save</button></div>' +
+        '</form>';
+    document.body.appendChild(metadataOverlay);
+    var metadataForm = metadataOverlay.querySelector('form');
+    var metadataStatus = metadataForm.querySelector('[name="status"]');
+    var metadataPhase = metadataForm.querySelector('[name="phase"]');
+
+    function closeMetadataEditor() {
+        metadataOverlay.style.display = 'none';
+        metadataPage = null;
+        editing = false;
+        render();
+    }
+
+    function openMetadataEditor(item) {
+        if (!item.page.node || typeof item.page.node.getAttribute !== 'function') {
+            showToast('Page details are not available for this page.');
+            return;
+        }
+        metadataPage = item.page;
+        metadataStatus.value = item.page.node.getAttribute('pe-status') || '';
+        metadataPhase.value = item.page.node.getAttribute('pe-phase') || '';
+        metadataForm.querySelector('h2').textContent = 'Page details: ' + item.label;
+        metadataOverlay.style.display = 'flex';
+        editing = true;
+        setTimeout(function () { metadataStatus.focus(); }, 0);
+    }
+
+    metadataForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!metadataPage || !metadataPage.node) { return; }
+        var status = metadataStatus.value;
+        var phase = metadataPhase.value.trim();
+        var oldStatus = metadataPage.node.getAttribute('pe-status') || '';
+        var oldPhase = metadataPage.node.getAttribute('pe-phase') || '';
+        try {
+            if (status) { metadataPage.node.setAttribute('pe-status', status); }
+            else { metadataPage.node.removeAttribute('pe-status'); }
+            if (phase) { metadataPage.node.setAttribute('pe-phase', phase); }
+            else { metadataPage.node.removeAttribute('pe-phase'); }
+        } catch (err) {
+            console.error('Page Explorer: could not save page details', err);
+            showToast('Could not save page details. Check the browser console for details.');
+            return;
+        }
+        if (status !== oldStatus || phase !== oldPhase) { markChanged(); }
+        closeMetadataEditor();
+    });
+    metadataForm.querySelector('[data-action="clear"]').addEventListener('click', function () {
+        metadataStatus.value = '';
+        metadataPhase.value = '';
+        metadataStatus.focus();
+    });
+    metadataForm.querySelector('[data-action="cancel"]').addEventListener('click', closeMetadataEditor);
+    metadataOverlay.addEventListener('click', function (e) {
+        if (e.target === metadataOverlay) { closeMetadataEditor(); }
+    });
+    metadataForm.addEventListener('keydown', function (e) {
+        e.stopPropagation();
+        if (e.key === 'Escape') { e.preventDefault(); closeMetadataEditor(); }
+    });
+
     // ---------- Tree rendering ----------
     function setAllCollapsed(value) {
         buildTree().order.forEach(function (g) { state.collapsed[g] = value; });
@@ -672,7 +760,9 @@ Draw.loadPlugin(function (ui) {
         tree.order.forEach(function (groupName) {
             var items = tree.groups[groupName].filter(function (item) {
                 return !filter || item.label.toLowerCase().indexOf(filter) >= 0 ||
-                    groupName.toLowerCase().indexOf(filter) >= 0;
+                    groupName.toLowerCase().indexOf(filter) >= 0 ||
+                    (item.page.node && ((item.page.node.getAttribute('pe-status') || '').toLowerCase().indexOf(filter) >= 0 ||
+                        (item.page.node.getAttribute('pe-phase') || '').toLowerCase().indexOf(filter) >= 0));
             });
             if (items.length === 0) { return; }
 
@@ -775,8 +865,29 @@ Draw.loadPlugin(function (ui) {
                 var pBtn = document.createElement('button');
                 pBtn.type = 'button';
                 pBtn.className = 'pe-page' + (item.page === ui.currentPage ? ' pe-active' : '');
-                pBtn.textContent = item.label;
-                pBtn.title = item.label;
+                var name = document.createElement('span');
+                name.className = 'pe-page-name';
+                name.textContent = item.label;
+                pBtn.appendChild(name);
+                var pageStatus = item.page.node && item.page.node.getAttribute('pe-status');
+                var pagePhase = item.page.node && item.page.node.getAttribute('pe-phase');
+                if (pageStatus) {
+                    var statusBadge = document.createElement('span');
+                    statusBadge.className = 'pe-page-meta';
+                    statusBadge.textContent = pageStatus;
+                    statusBadge.setAttribute('aria-label', 'Status: ' + pageStatus);
+                    pBtn.appendChild(statusBadge);
+                }
+                if (pagePhase) {
+                    var phaseBadge = document.createElement('span');
+                    phaseBadge.className = 'pe-page-meta';
+                    phaseBadge.textContent = pagePhase;
+                    phaseBadge.setAttribute('aria-label', 'Phase: ' + pagePhase);
+                    pBtn.appendChild(phaseBadge);
+                }
+                pBtn.title = item.label +
+                    (pageStatus ? '\nStatus: ' + pageStatus : '') +
+                    (pagePhase ? '\nPhase: ' + pagePhase : '');
                 var actions = document.createElement('span');
                 actions.className = 'pe-actions';
                 function rowAction(icon, tip, fn, cls) {
@@ -790,6 +901,7 @@ Draw.loadPlugin(function (ui) {
                     a.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
                     actions.appendChild(a);
                 }
+                rowAction('\u2691', 'Set page status and phase', function () { openMetadataEditor(item); });
                 rowAction('\u270E', 'Rename page (or double-click)', function () { startRename(pBtn, item); });
                 rowAction('\u29C9', 'Duplicate page', function () { duplicatePage(item); });
                 rowAction('\uD83D\uDDD1', 'Delete page', function () { deletePage(item.page); }, 'pe-danger');
@@ -1095,7 +1207,10 @@ Draw.loadPlugin(function (ui) {
         var lookup = getGroupNameLookup();
         return (ui.pages || []).map(function (p) {
             var g = getPageGroup(p, lookup);
-            return g.group + '|' + g.label + (p === ui.currentPage ? '*' : '');
+            return g.group + '|' + g.label + '|' +
+                (p.node && p.node.getAttribute('pe-status') || '') + '|' +
+                (p.node && p.node.getAttribute('pe-phase') || '') +
+                (p === ui.currentPage ? '*' : '');
         }).join('\n');
     }
     window.setInterval(function () {
