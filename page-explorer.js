@@ -872,6 +872,24 @@ Draw.loadPlugin(function (ui) {
         if (amount === 0) { delete el.__peOffset[prop]; }
     }
 
+    var diagramWidthOverride = null;
+    function restoreDiagramWidth() {
+        var dc = ui.diagramContainer;
+        if (!diagramWidthOverride || !dc) { return; }
+        if (dc.style.width === diagramWidthOverride.applied) {
+            dc.style.width = diagramWidthOverride.base;
+        }
+        diagramWidthOverride = null;
+    }
+
+    function setDiagramWidth(width) {
+        var dc = ui.diagramContainer;
+        if (!dc || !isFinite(width)) { return; }
+        var baseStyleWidth = dc.style.width;
+        dc.style.width = Math.max(0, width) + 'px';
+        diagramWidthOverride = { base: baseStyleWidth, applied: dc.style.width };
+    }
+
     function dockedSide() {
         return state.visible && state.dock !== 'float' ? state.dock : null;
     }
@@ -880,6 +898,7 @@ Draw.loadPlugin(function (ui) {
     function applyLayout() {
         if (laying) { return; }
         laying = true;
+        restoreDiagramWidth();
         try {
             dockBtn.textContent = { left: '⇤', right: '⇥', float: '◱' }[state.dock];
             dockBtn.title = 'Dock: ' + state.dock + ' (click to change)';
@@ -887,13 +906,22 @@ Draw.loadPlugin(function (ui) {
             var side = dockedSide();
             var w = state.width;
             var dc = ui.diagramContainer;
-            var shifted = [dc, ui.tabContainer, ui.hsplit].filter(Boolean);
+            var shifted = [ui.tabContainer, ui.hsplit].filter(Boolean);
 
             // Always set both sides so switching modes cleanly removes old offsets
             shifted.forEach(function (el) {
                 setOffset(el, 'left', side === 'left' ? w : 0);
                 setOffset(el, 'right', side === 'right' ? w : 0);
             });
+            setOffset(dc, 'left', side === 'left' ? w : 0);
+            setOffset(dc, 'right', 0);
+            if (side && dc) {
+                var canvasRect = dc.getBoundingClientRect();
+                var formatContainer = document.querySelector('.geSidebarContainer.geFormatContainer');
+                var rightBoundary = formatContainer ? formatContainer.getBoundingClientRect().left : window.innerWidth;
+                // Reserve the space between the canvas and draw.io's format sidebar.
+                setDiagramWidth(rightBoundary - canvasRect.left - (side === 'right' ? w : 0));
+            }
 
             panel.classList.toggle('pe-docked', !!side);
             panel.style.width = w + 'px';
@@ -931,6 +959,7 @@ Draw.loadPlugin(function (ui) {
     // Re-apply after every draw.io layout pass
     var originalRefresh = ui.refresh;
     ui.refresh = function () {
+        restoreDiagramWidth();
         var result = originalRefresh.apply(ui, arguments);
         try { applyLayout(); } catch (e) { console.warn('Page Explorer layout:', e); }
         return result;
